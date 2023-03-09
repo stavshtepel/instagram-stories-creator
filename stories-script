@@ -1,0 +1,41 @@
+#!/bin/sh
+
+set -euo pipefail
+[ ! -d ~/Pictures/images-stock/made-stories ] && mkdir ~/Pictures/images-stock/made-stories
+chosenLanguage=$(printf "english\nhebrew" | dmenu -p "Choose the instagram page you want to make stories for: ")
+numberOfStories=$(printf "\n" | dmenu -p "Choose the number of stories you want to get: ")
+storyCategory=""
+page=""
+[ "$chosenLanguage" == "english" ] && storyCategory=$(printf "motivation\ntips\nsuccess-stories" | dmenu -p "Choose the category of the stories: ") && page="your-success-path"
+[ "$chosenLanguage" == "hebrew" ] && storyCategory=$(printf "מוטיבציה\nטיפים-להצלחה" | dmenu -p "Choose the category of the stories: ") && page="your-journey-il"
+[ -z "$storyCategory" ] && exit 0
+notify-send "Your stories are in preperation..."
+num=1
+number=$(($(ls --color=none ~/Pictures/instagram/$page/stories | wc -l)+1))
+mkdir ~/Pictures/instagram/$page/stories/$number
+image-downloader-2 -c mixed -n $numberOfStories -d ~/Pictures/images-stock/made-stories
+storyMaker () {
+	storyBackground=$(du -h ~/Pictures/images-stock/made-stories/* | awk '{print $2}' | head -n $num | tail -1)
+ 	if [ "$chosenLanguage" == "hebrew" ]; then
+	 	storyText=$(cat ~/scripts/posts-script-stuff/story-quotes-hebrew.txt | shuf | head -n $number | tail -1 | sed 's/"//3' | sed 's/\(\w\w*\W*\w\w*\W*\w\w*\W*\)/\1\n/g')
+	 	convert -size 1080x1920 canvas:black -channel A -evaluate set 25% +channel $storyBackground -resize x1920 -alpha on \
+		-channel A -evaluate set 25% +channel \
+		-composite ~/Pictures/instagram/$page/story-template-border-$storyCategory.png \
+		-composite -gravity Center -font "Assistant-bold" -interline-spacing -18 -pointsize 70 -fill white -annotate 0 "$storyText" \
+		~/Pictures/instagram/$page/stories/$number/$num.jpg
+	elif [ "$chosenLanguage" == "english" ]; then
+	 	storyText=$(cat ~/scripts/posts-script-stuff/story-quotes.txt | shuf | head -n $number | tail -1 | sed 's/"//3' | sed 's/\(\w\w*\W*\w\w*\W*\w\w*\W*\)/\1\n/g')
+	 	convert \
+			\( ~/Pictures/instagram/$page/$storyCategory-story-template.png $storyBackground -resize x1920 -alpha on \) \
+		\( -channel A -evaluate set 50% +channel \) \
+		\( -composite -gravity Center -font "Adderley-bold" -pointsize 70 -fill white -annotate 0 "$storyText" \) \
+		~/Pictures/instagram/$page/stories/$number/$num.jpg
+ 	# else
+ 	fi
+	num=$((num+1))
+}
+for (( i=1; i<=$numberOfStories; i++ )); do
+	storyMaker
+done
+rm -rf ~/Pictures/images-stock/made-stories && notify-send "Your stories are prepared now"
+ranger ~/Pictures/instagram/$page/stories/$number
